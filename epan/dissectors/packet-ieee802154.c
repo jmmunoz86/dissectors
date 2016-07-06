@@ -1836,6 +1836,7 @@ dissect_ieee802154_header_ie(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *
     guint16     id;
     guint16     length;
     GByteArray *gba = g_byte_array_new();
+    packet->h_ie_size = 0;
 
     static const int * fields[] = {
         &hf_ieee802154_header_ie_type,
@@ -1857,6 +1858,7 @@ dissect_ieee802154_header_ie(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *
                                ett_ieee802154_header_ie, fields, ENC_LITTLE_ENDIAN);
 
         *offset += 2;
+        packet->h_ie_size += 2 + length;
 
         /* until the Header IEs are finalized, just use the data dissector */
         if (length > 0) {
