@@ -870,6 +870,8 @@ dissect_ieee802154_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, g
     heur_dtbl_entry_t      *hdtbl_entry;
 
     packet->short_table = ieee802154_map.short_table;
+    /*MAC header size*/
+    packet->mac_size = 0;
 
     /* Allocate frame data with hints for upper layers */
     if(!pinfo->fd->flags.visited){
@@ -895,6 +897,7 @@ dissect_ieee802154_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, g
 
     /* Frame Control Field */
     dissect_ieee802154_fcf(tvb, pinfo, ieee802154_tree, packet, &offset);
+    packet->mac_size +=2;
 
     /* Sequence Number */
     if (packet->seqno_suppression) {
@@ -911,6 +914,7 @@ dissect_ieee802154_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, g
         }
     }
     offset += 1;
+    packet->mac_size += 1;
     }
 
     /*
@@ -1140,6 +1144,7 @@ dissect_ieee802154_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, g
             proto_tree_add_uint(ieee802154_tree, hf_ieee802154_dst_panID, tvb, offset, 2, packet->dst_pan);
         }
         offset += 2;
+        packet->mac_size += 2;
     }
 
     /* Destination Address  */
@@ -1163,6 +1168,7 @@ dissect_ieee802154_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, g
 
         col_append_fstr(pinfo->cinfo, COL_INFO, ", Dst: %s", dst_addr);
         offset += 2;
+        packet->mac_size += 2;
     }
     else if (packet->dst_addr_mode == IEEE802154_FCF_ADDR_EXT) {
         guint64 *p_addr = (guint64 *)wmem_new(pinfo->pool, guint64);
@@ -1186,6 +1192,7 @@ dissect_ieee802154_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, g
         }
         col_append_fstr(pinfo->cinfo, COL_INFO, ", Dst: %s", eui64_to_display(wmem_packet_scope(), packet->dst64));
         offset += 8;
+        packet->mac_size += 8;
     }
 
     /* Source PAN Id */
@@ -1193,6 +1200,7 @@ dissect_ieee802154_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, g
         packet->src_pan = tvb_get_letohs(tvb, offset);
         proto_tree_add_uint(ieee802154_tree, hf_ieee802154_src_panID, tvb, offset, 2, packet->src_pan);
         offset += 2;
+        packet->mac_size += 2;
     }
     else {
         if (dstPanPresent) {
@@ -1256,6 +1264,7 @@ dissect_ieee802154_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, g
         col_append_fstr(pinfo->cinfo, COL_INFO, ", Src: %s", src_addr);
 
         offset += 2;
+        packet->mac_size += 2;
     }
     else if (packet->src_addr_mode == IEEE802154_FCF_ADDR_EXT) {
         guint64 *p_addr = (guint64 *)wmem_new(pinfo->pool, guint64);
@@ -1280,6 +1289,7 @@ dissect_ieee802154_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, g
 
         col_append_fstr(pinfo->cinfo, COL_INFO, ", Src: %s", eui64_to_display(wmem_packet_scope(), packet->src64));
         offset += 8;
+        packet->mac_size += 8;
     }
 
 
@@ -1327,11 +1337,13 @@ dissect_ieee802154_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, g
       /* Security Control Field */
       proto_tree_add_bitmask(header_tree, tvb, offset, hf_ieee802154_security_control_field, ett_ieee802154_aux_sec_control, security_fields, ENC_NA);
       offset++;
+      packet->mac_size++;
 
       /* Frame Counter Field */
       packet->frame_counter = tvb_get_letohl (tvb, offset);
       proto_tree_add_uint(header_tree, hf_ieee802154_aux_sec_frame_counter, tvb, offset,4, packet->frame_counter);
       offset +=4;
+      packet->mac_size += 4;
 
       /* Key identifier field(s). */
       if (packet->key_id_mode != KEY_ID_MODE_IMPLICIT) {
@@ -1344,17 +1356,20 @@ dissect_ieee802154_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, g
           proto_tree_add_uint64(field_tree, hf_ieee802154_aux_sec_key_source, tvb, offset, 4, packet->key_source.addr32);
           proto_item_set_len(ti, 1 + 4);
           offset += (int)sizeof (guint32);
+          packet->mac_size += (int)sizeof (guint32);
         }
         if (packet->key_id_mode == KEY_ID_MODE_KEY_EXPLICIT_8) {
           packet->key_source.addr64 = tvb_get_ntoh64(tvb, offset);
           proto_tree_add_uint64(field_tree, hf_ieee802154_aux_sec_key_source, tvb, offset, 8, packet->key_source.addr64);
           proto_item_set_len(ti, 1 + 8);
           offset += 8;
+          packet->mac_size += 8;
         }
         /* Add key identifier. */
         packet->key_index = tvb_get_guint8(tvb, offset);
         proto_tree_add_uint(field_tree, hf_ieee802154_aux_sec_key_index, tvb, offset,1, packet->key_index);
         offset++;
+        packet->mac_size++;
       }
     }
 
@@ -1836,7 +1851,6 @@ dissect_ieee802154_header_ie(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *
     guint16     id;
     guint16     length;
     GByteArray *gba = g_byte_array_new();
-    packet->header_ie_size = 0;
 
     static const int * fields[] = {
         &hf_ieee802154_header_ie_type,
@@ -1844,6 +1858,7 @@ dissect_ieee802154_header_ie(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *
         &hf_ieee802154_header_ie_length,
         NULL
     };
+    packet->header_ie_size = 0;
 
     do {
         header_ie =  tvb_get_letohs(tvb, *offset);
@@ -1873,7 +1888,7 @@ dissect_ieee802154_header_ie(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *
                     break;
             }
         }
-    } while (((tvb_reported_length(tvb) - packet->header_ie_size - IEEE802154_FCS_LEN) > 2) &&
+    } while (((tvb_reported_length(tvb) - packet->header_ie_size - IEEE802154_FCS_LEN - packet->mac_size) > 1) &&
              (id != IEEE802154_HEADER_IE_EID_TERM1) &&
              (id != IEEE802154_HEADER_IE_EID_TERM2));
 

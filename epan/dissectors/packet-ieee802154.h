@@ -306,6 +306,8 @@ typedef struct {
     gboolean    payload_ie_present;
     /* size of the header IE list */
     guint16		header_ie_size;
+    /* size of the MAC header */
+    guint8      mac_size;
     /* Addressing Info. */
     guint16     dst_pan;
     guint16     src_pan;
