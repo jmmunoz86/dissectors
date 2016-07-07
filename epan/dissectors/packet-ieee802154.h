@@ -276,7 +276,11 @@ typedef enum {
 #define IEEE802154_MLME_SUBIE_TMCP_SPECIFICATION         0x35
 #define IEEE802154_MLME_SUBIE_RCC_PHY_OPER_MODE          0x36
 /* 0x37-0x7f Reserved */
-
+/* Payload IE (Nested) Sub ID - long format */
+/* 0x0 - 0x7 Reserved */
+/* 0x0 - 0x8 Vendor Specific */
+#define IEEE802154_MLME_SUBIE_CHANNEL_HOPPING            0x9
+/* 0xa - 0xf Reserved */
 
 /* IEEE 802.15.4 cipher block size. */
 #define IEEE802154_CIPHER_SIZE                16
